@@ -29,7 +29,7 @@ contract Agreement is ChainlinkClient{
     uint8 public trueCount;
     uint8 public falseCount;
     uint256 public returnedtxid;
-    
+    uint256 public marketPrice;
     //These must all be set on creation
     string public sellerTargetCryptoAddress;
     string public buyerTargetCryptoAddress;
@@ -46,6 +46,10 @@ contract Agreement is ChainlinkClient{
 
     event successNodeResponse(
         bool success
+    );
+
+    event NewPriceEmiited(
+        uint256 coinPrice
     );
 
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
@@ -99,8 +103,19 @@ contract Agreement is ChainlinkClient{
         _;
     }
 
-    //Might Encounter ORACLE_PAYMENT problems with more than one oracle
-    //Needs more testing
+    function requetMarketPrice(string memory coinnumber)
+    public
+    {
+        apiAddress = strConcat("https://api.coinranking.com/v1/public/coin/", coinnumber, "", "", "");
+        //Loop to iterate through all the responses from different nodes
+        for(uint i = 0; i < oracles.length; i++){
+            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fullfillCoinPrice.selector);
+            req.add("get", apiAddress);
+            req.add("path", "data.coin.price");
+            sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
+        }
+    }
+    
     function requestConfirmations(string memory tx_hash)
     public
     buyerSellerContract
@@ -136,8 +151,14 @@ contract Agreement is ChainlinkClient{
         return string(babcde);
     }
 
-    function strConcat(string _a, string _b, string _c) internal pure returns (string) {
-        return strConcat(_a, _b, _c, "", "");
+    
+    //This should fulfill the node request
+    function fullfillCoinPrice(bytes32 _requestId, uint256 coinPrice)
+    public
+    recordChainlinkFulfillment(_requestId)
+    {
+        marketPrice = coinPrice;
+        emit NewPriceEmiited(coinPrice);
     }
     
     //This should fulfill the node request
