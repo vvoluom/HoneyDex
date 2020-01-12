@@ -1,54 +1,56 @@
 pragma solidity 0.4.24;
 pragma experimental ABIEncoderV2;
 
-import "./LinkPal.sol";
+import "./HoneyDex.sol";
 
-//LinkPalFactory, Produces the LinkPal agreements between users.
-contract Factory{
-    mapping (address => address[]) public LinkPalAddressesSeller;
-    mapping (address => address[]) public LinkPalAddressesBuyer;
+//HoneyDexFactory, Produces the HoneyDex agreements between users.
+contract HoneyDex{
+    mapping (address => address[]) public AgreementAddressesSeller;
+    mapping (address => address[]) public AgreementAddressesBuyer;
 
-    //address public LinkPalAddress;
+    //address public HoneyDexAddress;
     event contractDeployed(
-        address LinkPalAddress
+        address AgreementAddress
     );
 
-    //Creates, deploys and funds the linkpal contract
-    function createLinkPal(
-        string _currency,
-        string _invoiceID,
-        address  _buyerAddress,
+    //Creates, deploys and funds the HoneyDex contract
+    function createAgreement(
+
+        address _buyerEthAddress,
+        uint256 _amountTarget,
+        string  _sellerTargetCryptoAddress,
+        string  _buyerTargetCryptoAddress,
         string[] _jobIds,
-        address[] _oracles,
-        address _link
+        address[] _oracles
+
     ) public payable{
         //Probably need more requirement checks
         require(msg.value > 0,"No Negative Values are allowed");
- 
-        address LinkPalAddress = (new LinkPal).value(address(this).balance)(
-            _currency,
-             _invoiceID,
+
+        address AgreementAddress = (new Agreement).value(address(this).balance)(
             msg.sender,
-            _buyerAddress,
+            _buyerEthAddress,
             msg.value,
+            _amountTarget,
+            _sellerTargetCryptoAddress,
+            _buyerTargetCryptoAddress,
             _jobIds,
-            _oracles,
-            _link
+            _oracles
         );
-        
+
         //If it didn't fail Lock that much into a balance
-        LinkPalAddressesSeller[msg.sender].push(LinkPalAddress);
-        LinkPalAddressesBuyer[_buyerAddress].push(LinkPalAddress);
-    
+        AgreementAddressesSeller[msg.sender].push(AgreementAddress);
+        AgreementAddressesBuyer[_buyerEthAddress].push(AgreementAddress);
+
         //Emit an event here\
-        emit contractDeployed(LinkPalAddress);
+        emit contractDeployed(AgreementAddress);
     }
-    
-    function getLinkPalAddressesSeller() public constant returns(uint) {
-        return LinkPalAddressesSeller[msg.sender].length;
+
+    function getAgreementAddressesSeller() public view returns(address[]) {
+        return AgreementAddressesSeller[msg.sender];
     }
-    
-    function getLinkPalAddressesBuyer() public constant returns(uint) {
-      return LinkPalAddressesBuyer[msg.sender].length;
+
+    function getAgreementAddressesBuyer() public view returns(address[]) {
+      return AgreementAddressesBuyer[msg.sender];
     }
 }
