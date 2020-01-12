@@ -39,7 +39,7 @@ contract Agreement is ChainlinkClient{
     uint256 public amountTarget;
     uint256 public deploymentTime;
     string  public apiAddress;
-    
+
     mapping (address => uint256) public linkbalances;
 
     using SafeMath for uint256;
@@ -57,7 +57,7 @@ contract Agreement is ChainlinkClient{
     address[] public oracles;
 
     constructor(
-        
+
         address _sellerEthAddress,
         address _buyerEthAddress,
         uint256 _amountEth,
@@ -103,7 +103,7 @@ contract Agreement is ChainlinkClient{
         _;
     }
 
-    function requetMarketPrice(string coinnumber, address _oracle, string  _jobId)
+    function requestMarketPrice(string coinnumber, address _oracle, string  _jobId)
     public
     {
         //Loop to iterate through all the responses from different nodes
@@ -112,7 +112,7 @@ contract Agreement is ChainlinkClient{
         req.add("copyPath", "data.coin.price");
         sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
     }
-    
+
     function requestConfirmations(string memory tx_hash)
     public
     buyerSellerContract
@@ -122,13 +122,12 @@ contract Agreement is ChainlinkClient{
         trueCount = 0;
         falseCount = 0;
 
-//Loop to iterate through all the responses from different nodes
+        //Loop to iterate through all the responses from different nodes
         for(uint i = 0; i < oracles.length; i++){
             Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
             req.add("get",apiAddress);
             sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
         }
-
     }
 
     function strConcat(string _a, string _b, string _c, string _d, string _e) internal pure returns (string){
@@ -148,7 +147,6 @@ contract Agreement is ChainlinkClient{
         return string(babcde);
     }
 
-    
     //This should fulfill the node request
     function fullfillCoinPrice(bytes32 _requestId, int256 coinPrice)
     public
@@ -157,7 +155,7 @@ contract Agreement is ChainlinkClient{
         marketPrice = coinPrice;
         emit NewPriceEmiited(coinPrice);
     }
-    
+
     //This should fulfill the node request
     function fulfillNodeRequest(bytes32 _requestId, uint256 txid)
     public
@@ -180,16 +178,16 @@ contract Agreement is ChainlinkClient{
 		}
         emit successNodeResponse(released);
     }
-    
+
     function returnNewID() public view returns(uint256){
         return returnedtxid;
-    }    
-    
+    }
+
     //This isnt really needed
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
-    
+
     //Withdraw ETH from contract
     //Checks on who can withdraw should only be accessible by buyer and seller
     //Maybe modifications that the seller can send the ETH to the buyer.
@@ -208,7 +206,7 @@ contract Agreement is ChainlinkClient{
             //Do Nothing cause you do not have access to this contract
         }
     }
-    
+
     //Function to deposit LINK into contract and keep track of such deposits
     function depositLink(uint256 _amount) public buyerSellerContract{
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
@@ -222,7 +220,7 @@ contract Agreement is ChainlinkClient{
         require(link.transfer(msg.sender,linkbalances[msg.sender]), "Unable to transfer");
         linkbalances[msg.sender] = 0;
     }
-    
+
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
         bytes memory tempEmptyStringTest = bytes(source);
         if (tempEmptyStringTest.length == 0) {
