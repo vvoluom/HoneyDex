@@ -29,7 +29,7 @@ contract Agreement is ChainlinkClient{
     uint8 public trueCount;
     uint8 public falseCount;
     uint256 public returnedtxid;
-    int256 public marketPrice;
+    
     //These must all be set on creation
     string public sellerTargetCryptoAddress;
     string public buyerTargetCryptoAddress;
@@ -39,7 +39,7 @@ contract Agreement is ChainlinkClient{
     uint256 public amountTarget;
     uint256 public deploymentTime;
     string  public apiAddress;
-
+    
     mapping (address => uint256) public linkbalances;
 
     using SafeMath for uint256;
@@ -48,16 +48,12 @@ contract Agreement is ChainlinkClient{
         bool success
     );
 
-    event NewPriceEmiited(
-        int256 coinPrice
-    );
-
     //Arrays 1:1 of Oracales and the corresponding Jobs IDs in those oracles
     string[] public jobIds;
     address[] public oracles;
 
     constructor(
-
+        
         address _sellerEthAddress,
         address _buyerEthAddress,
         uint256 _amountEth,
@@ -103,16 +99,8 @@ contract Agreement is ChainlinkClient{
         _;
     }
 
-    function requestMarketPrice(string coinnumber, address _oracle, string  _jobId)
-    public
-    {
-        //Loop to iterate through all the responses from different nodes
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fullfillCoinPrice.selector);
-        req.add("coin_id", coinnumber);
-        req.add("copyPath", "data.coin.price");
-        sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
-    }
-
+    //Might Encounter ORACLE_PAYMENT problems with more than one oracle
+    //Needs more testing
     function requestConfirmations(string memory tx_hash)
     public
     buyerSellerContract
@@ -124,10 +112,11 @@ contract Agreement is ChainlinkClient{
 
         //Loop to iterate through all the responses from different nodes
         for(uint i = 0; i < oracles.length; i++){
-            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fullfillNodeRequest.selector);
+            Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(jobIds[i]), this, this.fulfillNodeRequest.selector);
             req.add("get",apiAddress);
             sendChainlinkRequestTo(oracles[i], req, ORACLE_PAYMENT);
         }
+
     }
 
     function strConcat(string _a, string _b, string _c, string _d, string _e) internal pure returns (string){
@@ -147,17 +136,12 @@ contract Agreement is ChainlinkClient{
         return string(babcde);
     }
 
-    //This should fulfill the node request
-    function fullfillCoinPrice(bytes32 _requestId, int256 coinPrice)
-    public
-    recordChainlinkFulfillment(_requestId)
-    {
-        marketPrice = coinPrice;
-        emit NewPriceEmiited(coinPrice);
+    function strConcat(string _a, string _b, string _c) internal pure returns (string) {
+        return strConcat(_a, _b, _c, "", "");
     }
-
+    
     //This should fulfill the node request
-    function fullfillNodeRequest(bytes32 _requestId, uint256 txid)
+    function fulfillNodeRequest(bytes32 _requestId, uint256 txid)
     public
     recordChainlinkFulfillment(_requestId)
     {
@@ -173,21 +157,19 @@ contract Agreement is ChainlinkClient{
         }
         if(trueCount > falseCount){
             released = true;
-        }else{
-		  released = false;
-		}
+        }
         emit successNodeResponse(released);
     }
-
+    
     function returnNewID() public view returns(uint256){
         return returnedtxid;
-    }
-
+    }    
+    
     //This isnt really needed
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
-
+    
     //Withdraw ETH from contract
     //Checks on who can withdraw should only be accessible by buyer and seller
     //Maybe modifications that the seller can send the ETH to the buyer.
@@ -206,7 +188,7 @@ contract Agreement is ChainlinkClient{
             //Do Nothing cause you do not have access to this contract
         }
     }
-
+    
     //Function to deposit LINK into contract and keep track of such deposits
     function depositLink(uint256 _amount) public buyerSellerContract{
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
@@ -220,7 +202,7 @@ contract Agreement is ChainlinkClient{
         require(link.transfer(msg.sender,linkbalances[msg.sender]), "Unable to transfer");
         linkbalances[msg.sender] = 0;
     }
-
+    
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
         bytes memory tempEmptyStringTest = bytes(source);
         if (tempEmptyStringTest.length == 0) {
@@ -232,3 +214,56 @@ contract Agreement is ChainlinkClient{
         }
     }
 }
+
+//HoneyDexFactory, Produces the HoneyDex agreements between users.
+contract HoneyDex{
+    mapping (address => address[]) public AgreementAddressesSeller;
+    mapping (address => address[]) public AgreementAddressesBuyer;
+
+    //address public HoneyDexAddress;
+    event contractDeployed(
+        address AgreementAddress
+    );
+
+    //Creates, deploys and funds the HoneyDex contract
+    function createAgreement(
+        
+        address _buyerEthAddress,
+        uint256 _amountTarget,
+        string  _sellerTargetCryptoAddress,
+        string  _buyerTargetCryptoAddress,
+        string[] _jobIds,
+        address[] _oracles
+        
+    ) public payable{
+        //Probably need more requirement checks
+        require(msg.value > 0,"No Negative Values are allowed");
+
+        address AgreementAddress = (new Agreement).value(address(this).balance)(
+            msg.sender,
+            _buyerEthAddress,
+            msg.value,
+            _amountTarget,
+            _sellerTargetCryptoAddress,
+            _buyerTargetCryptoAddress,
+            _jobIds,
+            _oracles
+        );
+
+        //If it didn't fail Lock that much into a balance
+        AgreementAddressesSeller[msg.sender].push(AgreementAddress);
+        AgreementAddressesBuyer[_buyerEthAddress].push(AgreementAddress);
+
+        //Emit an event here\
+        emit contractDeployed(AgreementAddress);
+    }
+
+    function getAgreementAddressesSeller() public view returns(address[]) {
+        return AgreementAddressesSeller[msg.sender];
+    }
+
+    function getAgreementAddressesBuyer() public view returns(address[]) {
+      return AgreementAddressesBuyer[msg.sender];
+    }
+}
+
